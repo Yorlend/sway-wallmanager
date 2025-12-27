@@ -1,7 +1,9 @@
 #include "managers/DaemonManager.h"
+#include "managers/ConfigManager.h"
 
 #include <unistd.h>
 #include <syslog.h>
+#include <cstdlib>
 
 int main()
 {
@@ -9,9 +11,13 @@ int main()
 
 	DaemonManager::Daemonize();
 
+	ConfigManager config;
 	for (;;)
 	{
 		sleep(5);
-		syslog(LOG_INFO, "5 seconds passed");
+		if (config.Changed())
+			if (auto wall = config.GetWallpaperPath())
+				syslog(LOG_INFO, "new wallpaper %s", wall->c_str());
 	}
 }
+
