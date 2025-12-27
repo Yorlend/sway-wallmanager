@@ -1,6 +1,6 @@
 #pragma once
 
-#include <mutex>
+#include <filesystem>
 
 class DaemonManager
 {
@@ -10,17 +10,19 @@ public:
 public:
 	static void Daemonize();
 	static pid_t GetPid();
-	static bool IsRunning();
 
 private:
-	DaemonManager() = default;
+	DaemonManager();
 	DaemonManager(DaemonManager&&) = delete;
 
 	static DaemonManager& Instance();
 	pid_t Daemonize_();
+	void SetupLogging();
+	void ExitIfAlreadyRunning();
+	void SetupExitCallback();
 
 private:
+	std::filesystem::path m_pidfile;
 	pid_t m_pid{-1};
-	static inline std::mutex m_mutex;
 };
 

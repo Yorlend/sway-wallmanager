@@ -9,45 +9,72 @@
 #include <cstdio>
 #include <fcntl.h>
 #include <syslog.h>
+#include <csignal>
+
+DaemonManager::DaemonManager()
+{
+	std::filesystem::path xdg_runtime_dir{ std::getenv("XDG_RUNTIME_DIR") };
+	m_pidfile = xdg_runtime_dir / c_pidfile;
+}
 
 void DaemonManager::Daemonize()
 {
-	std::lock_guard _(m_mutex);
 	auto& mngr = Instance();
-	if (mngr.m_pid < 0)
+	if (mngr.m_pid < 0) {
 		mngr.m_pid = mngr.Daemonize_();
+		mngr.SetupLogging();
+		mngr.ExitIfAlreadyRunning();
+		mngr.SetupExitCallback();
+	}
 }
 
 pid_t DaemonManager::GetPid()
 {
-	std::lock_guard _(m_mutex);
 	return Instance().m_pid;
 }
 
-bool DaemonManager::IsRunning()
+void DaemonManager::SetupLogging()
 {
-	std::filesystem::path pidfile_path;
-	if (const char* rt = std::getenv("XDG_RUNTIME_DIR"))
-		pidfile_path = std::filesystem::path(rt) / c_pidfile;
+	openlog("wallmanagerd", LOG_PID, LOG_DAEMON);
+}
 
-	auto fd = open(pidfile_path.c_str(), O_RDWR | O_CREAT, 0644);
-	if (fd < 0)
-		return true;
+void DaemonManager::ExitIfAlreadyRunning()
+{
+	auto fd = open(Instance().m_pidfile.c_str(), O_RDWR | O_CREAT, 0644);
+	if (fd < 0) {
+		syslog(LOG_INFO, "daemon is already running");
+		std::exit(-1);
+	}
 
 	if (flock(fd, LOCK_EX | LOCK_NB) < 0) {
+		syslog(LOG_INFO, "daemon is already running");
 		close(fd);
-		return true;
+		std::exit(-1);
 	}
 
 	if (ftruncate(fd, 0) < 0 ||
 	    dprintf(fd, "%ld\n", static_cast<long>(getpid())) < 0 ||
 	    fsync(fd) < 0)
 	{
+		syslog(LOG_INFO, "daemon is already running");
 		close(fd);
-		return true;
+		std::exit(-1);
 	}
 
-	return false;
+	syslog(LOG_INFO, "wallmanagerd daemon started");
+}
+
+void DaemonManager::SetupExitCallback()
+{
+	static bool once = []{
+		std::atexit([]{
+			syslog(LOG_INFO, "DELETING PIDFILE");
+			std::filesystem::remove(Instance().m_pidfile);
+		});
+		std::signal(SIGTERM, [](int){ std::exit(0); });
+		std::signal(SIGINT,  [](int){ std::exit(0); });
+		return true;
+	}();
 }
 
 DaemonManager& DaemonManager::Instance()
@@ -62,7 +89,7 @@ pid_t DaemonManager::Daemonize_()
 	if (pid < 0)
 		return -1;
 	if (pid > 0)
-		_exit(0);
+		std::exit(0);
 
 	if (setsid() < 0)
 		return -1;
@@ -71,7 +98,7 @@ pid_t DaemonManager::Daemonize_()
 	if (pid < 0)
 		return -1;
 	if (pid > 0)
-		_exit(0);
+		std::exit(0);
 
 	umask(0);
 	chdir("/");

@@ -5,15 +5,9 @@
 
 int main()
 {
+	// TODO: add kill command
 
 	DaemonManager::Daemonize();
-	if (DaemonManager::IsRunning()) {
-		syslog(LOG_INFO, "Daemon is already running");
-		return -1;
-	}
-
-	openlog("wallmanagerd", LOG_PID, LOG_DAEMON);
-	syslog(LOG_INFO, "wallmanagerd daemon started");
 
 	for (;;)
 	{
