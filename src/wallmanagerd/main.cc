@@ -15,10 +15,10 @@ int main()
 	ConfigManager config;
 	for (;;)
 	{
-		sleep(5);
 		if (config.Changed())
 			if (auto wall = config.GetWallpaperPath())
 				sway::SetWallpaper(wall->c_str());
+		sleep(5);
 	}
 }
 
