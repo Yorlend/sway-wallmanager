@@ -3,4 +3,5 @@ project(sway-wallmanager)
 
 
 add_subdirectory(src/wallmanagerd)
+add_subdirectory(src/ui)
 
