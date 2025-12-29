@@ -5,6 +5,11 @@ set(CMAKE_CXX_STANDARD 20)
 add_executable(${UNIT_NAME})
 
 target_sources(${UNIT_NAME} PRIVATE
+	app/Application.cc
+	app/ApplicationManager.cc
+	components/App.cc
+	services/ConfigService.cc
+	services/FileService.cc
 	main.cc
 )
 target_include_directories(${UNIT_NAME} PRIVATE
